@@ -1,11 +1,14 @@
 # Train skull stripper UNET using new data
 import os
 import torch
+torch.cuda.empty_cache()
 from torch.utils.data import DataLoader
-from torch.optim import optim
+import torch.optim as optim
 from torchvision import transforms
+import numpy as np
 from dataset import SkullStripperDataset, load_data
 from loss import DiceLoss
+from metrics import dice_score
 
 def train_skullstripper(data_path,
                         validation_portion=.2,
@@ -34,7 +37,66 @@ def train_skullstripper(data_path,
     if torch.cuda.is_available():
         model.cuda()
 
-    
     loss_f = DiceLoss()
-    optimizer = optim.Adam(model.parameters(), lr = lr)
-    scheduler = StepLR(optimizer, step_size=args.lr_step, gamma=0.1)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+
+    # Metric placeholders
+    train_loss, val_loss, train_dice_scores, val_dice_scores = [], [], [], []
+
+    # Train the model
+    for epoch in range(num_epochs):
+
+        # Train
+        l_temp, train_dice_score_temp = [], []
+        for inputs, labels in training:
+            optimizer.zero_grad()
+            if torch.cuda.is_available():
+                inputs = inputs.cuda()
+                labels = labels.cuda()
+            predict = model(inputs)
+
+            loss = loss_f(predict, labels)
+            
+            loss.backward()
+            optimizer.step()
+
+            # Saving metrics
+            l_temp.append(loss.item())
+            train_dice_score_temp.append(dice_score(labels, predict).item())
+        
+        train_loss.append(l_temp)
+        train_dice_scores.append(train_dice_score_temp)
+
+        # Validation
+        l_temp, val_dice_score_temp = [], []
+        for inputs, labels in validating:
+            with torch.no_grad():
+                if torch.cuda.is_available():
+                    inputs = inputs.cuda()
+                    labels = labels.cuda()
+                predict = model(inputs)
+                loss = loss_f(predict, labels)
+
+                # Saving metrics
+                l_temp.append(loss.item())
+                val_dice_score_temp.append(dice_score(labels, predict).item())
+            
+        val_loss.append(l_temp)
+        val_dice_scores.append(val_dice_score_temp)
+            
+        print('epoch [{}/{}], loss train:{:.4f}, val:{:.4f} || dice score train: {:.4f}, val: {:.4f}'.format(epoch+1, num_epochs, \
+                    np.mean(train_loss[-1]), np.mean(val_loss[-1]), \
+                    np.mean(train_dice_scores[-1]), np.mean(val_dice_scores[-1])), \
+                )
+        
+    return train_loss, val_loss, train_dice_scores, val_dice_scores
+
+if __name__ == "__main__":
+    data_path = '/projects/compsci/USERS/frohoz/msUNET/train/dataset/'
+    train_skullstripper(data_path,
+                        validation_portion=.2,
+                        batch_size=64,
+                        lr=0.01,
+                        num_epochs=100,
+                        skpath='/home/ghanba/ssNET/skull-stripper',
+                        )

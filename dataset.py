@@ -8,7 +8,7 @@ from torchvision import transforms
 import os
 
 
-def load_data(data_path, validation_portion=0.05):
+def load_data(data_path, validation_portion=0.2):
     '''
     loads all train images in data_path
     data_path has two subfolders "training" and "masks"
@@ -29,28 +29,28 @@ def load_data(data_path, validation_portion=0.05):
 
     # Read indiviual "nii.gz" files
     for f in train_list:
-        # Read the entire volume
-        training_arr = sitk.GetArrayFromImage(sitk.ReadImage(train_path + f))
-        mask_arr = sitk.GetArrayFromImage(sitk.ReadImage(mask_path + f.replace('data','mask')))
+        if 'dti' in f:
 
-        for image_idx in range(training_arr.shape[0]):
+            # Read the entire volume
+            training_arr = sitk.GetArrayFromImage(sitk.ReadImage(train_path + f))
+            mask_arr = sitk.GetArrayFromImage(sitk.ReadImage(mask_path + f.replace('data','mask')))
 
-            trans = transforms.Compose([transforms.Resize((225,225)),transforms.CenterCrop(256), transforms.ToTensor()])
+            for image_idx in range(training_arr.shape[0]):
 
-            # Preprocess and transform training data
-            input_image_original = training_arr[image_idx, :,:]
-            input_image_original = normalize_image(input_image_original)
-            input_image = cvt1to3channels(input_image_original)
-            input_image = Image.fromarray(np.uint8(input_image))
-            input_image = trans(input_image).unsqueeze(0)
-            
-            # Transform expert mask
-            input_mask_original = mask_arr[image_idx, :,:]
-            input_mask = Image.fromarray(np.uint8(input_mask_original))
-            input_mask = trans(input_mask).unsqueeze(0)
+                # Preprocess and transform training data
+                input_image_original = training_arr[image_idx, :,:]
+                input_image_original = normalize_image(input_image_original)
+                # input_image = cvt1to3channels(input_image_original)
+                # input_image = Image.fromarray(np.uint8(input_image))
+                # input_image = trans(input_image).unsqueeze(0)
+                
+                # Transform expert mask
+                input_mask_original = mask_arr[image_idx, :,:]
+                # input_mask = Image.fromarray(np.uint8(input_mask_original))
+                # input_mask = trans(input_mask).unsqueeze(0)
 
-            src.append(np.uint8(input_image))
-            msk.append(np.uint8(input_mask))
+                src.append(np.uint8(input_image_original))
+                msk.append(np.uint8(input_mask_original))
 
 
     src = np.array(src)
@@ -67,14 +67,22 @@ class SkullStripperDataset(Dataset):
     '''
     the training data is already includes augmentation from Zachary 
     '''
-    def __init__(self, src, msk):
+    def __init__(self, src, msk, transform=None):
         self.src = src
         self.msk = msk
+        self.transform = transform
 
     def __len__(self):
         return len(self.src)
 
     def __getitem__(self, idx):
-        return self.src[idx], self.msk[idx]
+        src_img = self.src[idx]
+        msk_img = self.msk[idx]
+        
+        input_image = cvt1to3channels(src_img)
+        input_image = Image.fromarray(np.uint8(input_image))
+        input_image = self.transform(input_image).unsqueeze(0)
 
-if
+        input_mask = Image.fromarray(np.uint8(msk_img))
+        input_mask = self.transform(input_mask).unsqueeze(0)
+        return input_image, input_mask

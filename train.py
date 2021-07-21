@@ -4,6 +4,7 @@ import torch
 torch.cuda.empty_cache()
 from torch.utils.data import DataLoader
 import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
 from torchvision import transforms
 import numpy as np
 from dataset import SkullStripperDataset, load_data
@@ -14,6 +15,7 @@ def train_skullstripper(data_path,
                         validation_portion=.2,
                         batch_size=256,
                         lr=0.01,
+                        lr_step=100,
                         num_epochs=100,
                         skpath='/home/ghanba/ssNET/skull-stripper',
                         ):
@@ -23,8 +25,8 @@ def train_skullstripper(data_path,
     # Transform both images and masks ...
     trans = transforms.Compose([transforms.Resize((225,225)),transforms.CenterCrop(256), transforms.ToTensor()])
 
-    train = SkullStripperDataset(src_train, msk_train, transform=trans)
-    val = SkullStripperDataset(src_val, msk_val, transform=trans)
+    train = SkullStripperDataset(src_train, msk_train, transform=trans, augmentation=True)
+    val = SkullStripperDataset(src_val, msk_val, transform=trans, augmentation=False)
 
     training = DataLoader(train, batch_size=batch_size, shuffle=False)
     validating = DataLoader(val, batch_size=batch_size, shuffle=False)
@@ -39,6 +41,7 @@ def train_skullstripper(data_path,
 
     loss_f = DiceLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
+    # scheduler = StepLR(optimizer, step_size=lr_step, gamma=0.1)
 
     # Metric placeholders
     train_loss, val_loss, train_dice_scores, val_dice_scores = [], [], [], []
@@ -66,6 +69,8 @@ def train_skullstripper(data_path,
         
         train_loss.append(l_temp)
         train_dice_scores.append(train_dice_score_temp)
+
+        # scheduler.step()
 
         # Validation
         l_temp, val_dice_score_temp = [], []
@@ -97,6 +102,7 @@ if __name__ == "__main__":
                         validation_portion=.2,
                         batch_size=64,
                         lr=0.01,
+                        lr_step=100,
                         num_epochs=100,
                         skpath='/home/ghanba/ssNET/skull-stripper',
                         )

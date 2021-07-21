@@ -1,8 +1,10 @@
 # Loading data and defining dataset class
 from torch.utils.data import Dataset
+import torchvision.transforms.functional as F
 import numpy as np
 import SimpleITK as sitk
 from utils import cvt1to3channels, normalize_image
+import random
 from PIL import Image
 from torchvision import transforms
 import os
@@ -58,10 +60,13 @@ class SkullStripperDataset(Dataset):
     '''
     the training data is already includes augmentation from Zachary 
     '''
-    def __init__(self, src, msk, transform=None):
+    def __init__(self, src, msk, 
+                    transform=None,
+                    augmentation=True):
         self.src = src
         self.msk = msk
         self.transform = transform
+        self.augmentation = augmentation
 
     def __len__(self):
         return len(self.src)
@@ -70,10 +75,25 @@ class SkullStripperDataset(Dataset):
         src_img = self.src[idx]
         msk_img = self.msk[idx]
         
-        input_image = cvt1to3channels(src_img)
-        input_image = Image.fromarray(np.uint8(input_image))
-        input_image = self.transform(input_image)
+        image = cvt1to3channels(src_img)
+        image = Image.fromarray(np.uint8(image))
 
-        input_mask = Image.fromarray(np.uint8(msk_img))
-        input_mask = self.transform(input_mask)
-        return input_image, input_mask
+        mask = Image.fromarray(np.uint8(msk_img))
+
+        if self.transform:
+            if random.random() > 0.5 and self.augmentation:
+               image = F.vflip(image)
+               mask = F.vflip(mask)
+            if random.random() > 0.5 and self.augmentation:
+               image = F.hflip(image)
+               mask = F.hflip(mask)
+            if random.random() > 0.5 and self.augmentation:
+               angle=np.random.choice([90.0,180.0,270.0])
+               image = F.rotate(image,angle)
+               mask = F.rotate(mask,angle)
+
+            image = self.transform(image)
+            mask = self.transform(mask)
+
+
+        return image, mask

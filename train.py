@@ -1,7 +1,6 @@
 # Train skull stripper UNET using new data
 import os
-import torch
-torch.cuda.empty_cache()
+import torch; torch.cuda.empty_cache()
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
@@ -16,11 +15,13 @@ def train_skullstripper(data_path,
                         batch_size=256,
                         lr=0.01,
                         lr_step=100,
+                        modality=None,
                         num_epochs=100,
                         skpath='/home/ghanba/ssNET/skull-stripper',
+                        save_path='/weights'
                         ):
     # Load the data
-    src_train, msk_train, src_val, msk_val = load_data(data_path, validation_portion=validation_portion)
+    src_train, msk_train, src_val, msk_val, fnames = load_data(data_path, validation_portion=validation_portion, modality=modality)
 
     # Transform both images and masks ...
     trans = transforms.Compose([transforms.Resize((225,225)),transforms.CenterCrop(256), transforms.ToTensor()])
@@ -50,6 +51,7 @@ def train_skullstripper(data_path,
     for epoch in range(num_epochs):
 
         # Train
+        model.train()
         l_temp, train_dice_score_temp = [], []
         for inputs, labels in training:
             optimizer.zero_grad()
@@ -73,6 +75,7 @@ def train_skullstripper(data_path,
         # scheduler.step()
 
         # Validation
+        model.eval()
         l_temp, val_dice_score_temp = [], []
         for inputs, labels in validating:
             with torch.no_grad():
@@ -94,6 +97,10 @@ def train_skullstripper(data_path,
                     np.mean(train_dice_scores[-1]), np.mean(val_dice_scores[-1])), \
                 )
         
+    # Saving trained model
+    modelpath = os.path.join(save_path, modality+'.pth')
+    torch.save(model.state_dict(), modelpath)
+
     return train_loss, val_loss, train_dice_scores, val_dice_scores
 
 if __name__ == "__main__":
@@ -101,8 +108,9 @@ if __name__ == "__main__":
     train_skullstripper(data_path,
                         validation_portion=.2,
                         batch_size=64,
-                        lr=0.01,
+                        lr=0.002,
                         lr_step=100,
+                        modality='dti',
                         num_epochs=100,
                         skpath='/home/ghanba/ssNET/skull-stripper',
                         )

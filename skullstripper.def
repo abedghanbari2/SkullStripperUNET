@@ -1,10 +1,13 @@
 Bootstrap: docker
-From: debian:buster-slim
+From: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-runtime
+
 
 %post 
     apt-get update
     apt-get install -y python3 python3-pip libsm6 libxext6 libxrender-dev
-    pip3 install torch==1.9.0 torchvision==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html
-    pip3 install numpy==1.16.6 \
-    Pillow==8.3.1 \
-    SimpleITK==2.0.2 \
+    pip3 install  --no-cache-dir numpy==1.16.6
+    pip3 install  --no-cache-dir Pillow==8.3.1
+    pip3 install  --no-cache-dir SimpleITK==2.0.1
+
+%environment
+    export LC_ALL=C

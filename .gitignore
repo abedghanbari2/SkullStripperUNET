@@ -1,6 +1,7 @@
 *.pyc
-
-
-
+*.swp
+tmp.png
+.vscode
+/weights
 
 

@@ -98,16 +98,16 @@ class SkullStripperDataset(Dataset):
         mask = Image.fromarray(np.uint8(msk_img))
 
         if self.transform:
-            if random.random() > 0.5 and self.augmentation:
-                image = F.vflip(image)
-                mask = F.vflip(mask)
-            if random.random() > 0.5 and self.augmentation:
-                image = F.hflip(image)
-                mask = F.hflip(mask)
-            if random.random() > 0.5 and self.augmentation:
-                angle=np.random.choice([5.0,-5.0])
-                image = F.rotate(image,angle)
-                mask = F.rotate(mask,angle)
+            # if random.random() > 0.5 and self.augmentation:
+            #     image = F.vflip(image)
+            #     mask = F.vflip(mask)
+            # if random.random() > 0.5 and self.augmentation:
+            #     image = F.hflip(image)
+            #     mask = F.hflip(mask)
+            # if random.random() > 0.5 and self.augmentation:
+            #     angle=np.random.choice([5.0,-5.0])
+            #     image = F.rotate(image,angle)
+            #     mask = F.rotate(mask,angle)
 
             image = self.transform(image)
             mask = self.transform(mask)

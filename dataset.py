@@ -8,9 +8,9 @@ import random
 from PIL import Image
 from torchvision import transforms
 import os
+from random import shuffle
 
-
-def load_data(data_path, validation_portion=0.2):
+def load_data(data_path, validation_portion=0.2, modality=None):
     '''
     loads all train images in data_path
     data_path has two subfolders "training" and "masks"
@@ -19,6 +19,8 @@ def load_data(data_path, validation_portion=0.2):
     #TODO check for this correspondence
 
     all frames from all modalities are stored in output list
+
+    if modality is None loads everything
     '''
 
     train_path = data_path + 'training/' 
@@ -26,34 +28,49 @@ def load_data(data_path, validation_portion=0.2):
     train_list = sorted(os.listdir(train_path))
     train_list = [i for i in train_list if i[-2:]=='gz']
 
-    src = []
-    msk = []
+    src, msk, fnames = [], [], []
 
     # Read indiviual "nii.gz" files
     for f in train_list:
-        if 'dti' in f:
-            # Read the entire volume
-            training_arr = sitk.GetArrayFromImage(sitk.ReadImage(train_path + f))
-            mask_arr = sitk.GetArrayFromImage(sitk.ReadImage(mask_path + f.replace('data','mask')))
+        if modality and modality not in f:
+                continue
+        # Read the entire volume
+        training_arr = sitk.GetArrayFromImage(sitk.ReadImage(train_path + f))
+        
+        # 'noddi' images have 4 dimentions
+        if len(training_arr.shape)==4:
+            training_arr = training_arr[0,:,:,:]
+        
+        mask_arr = sitk.GetArrayFromImage(sitk.ReadImage(mask_path + f.replace('data','mask')))
 
-            for image_idx in range(training_arr.shape[0]):
-                # Preprocess and transform training data
-                input_image_original = training_arr[image_idx, :,:]
-                input_image_original = normalize_image(input_image_original)
+        for image_idx in range(training_arr.shape[0]):
+            # Preprocess and transform training data
+            input_image_original = training_arr[image_idx, :,:]
+            input_image_original = normalize_image(input_image_original)
 
-                # Transform expert mask
-                input_mask_original = mask_arr[image_idx, :,:]
-                src.append(np.uint8(input_image_original))
-                msk.append(np.uint8(input_mask_original))
+            # Transform expert mask
+            input_mask_original = mask_arr[image_idx, :,:]
+            src.append(np.uint8(input_image_original))
+            msk.append(np.uint8(input_mask_original))
+            fnames.append((f, image_idx))
+
+    # Shuffle dataset
+    index_shuf = list(range(len(fnames)))
+    shuffle(index_shuf)
+
+    fnames = [fnames[i] for i in index_shuf]
+    src = [src[i] for i in index_shuf]
+    msk = [msk[i] for i in index_shuf]
 
     src = np.array(src)
     msk = np.array(msk)
 
+    # Select slice for train
     validation_size = int(len(src) * validation_portion)
     train_size = len(src)-validation_size
-
+    
     return src[:train_size], msk[:train_size], \
-            src[train_size:], msk[train_size:],
+            src[train_size:], msk[train_size:], fnames
 
 
 class SkullStripperDataset(Dataset):
@@ -82,15 +99,15 @@ class SkullStripperDataset(Dataset):
 
         if self.transform:
             if random.random() > 0.5 and self.augmentation:
-               image = F.vflip(image)
-               mask = F.vflip(mask)
+                image = F.vflip(image)
+                mask = F.vflip(mask)
             if random.random() > 0.5 and self.augmentation:
-               image = F.hflip(image)
-               mask = F.hflip(mask)
+                image = F.hflip(image)
+                mask = F.hflip(mask)
             if random.random() > 0.5 and self.augmentation:
-               angle=np.random.choice([90.0,180.0,270.0])
-               image = F.rotate(image,angle)
-               mask = F.rotate(mask,angle)
+                angle=np.random.choice([5.0,-5.0])
+                image = F.rotate(image,angle)
+                mask = F.rotate(mask,angle)
 
             image = self.transform(image)
             mask = self.transform(mask)

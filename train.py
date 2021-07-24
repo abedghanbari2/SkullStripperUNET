@@ -9,6 +9,7 @@ import numpy as np
 from dataset import SkullStripperDataset, load_data
 from loss import DiceLoss
 from metrics import dice_score
+import argparse
 
 def train_skullstripper(data_path,
                         validation_portion=.2,
@@ -17,9 +18,15 @@ def train_skullstripper(data_path,
                         lr_step=100,
                         modality=None,
                         num_epochs=100,
-                        skpath='/home/ghanba/ssNET/skull-stripper',
-                        save_path='/weights'
+                        skpath=None,
+                        save_path='weights'
                         ):
+    
+    print(f'Starting training: lr: {lr}, batch_size: {batch_size}, modality: {modality}')
+
+    # where to save the model
+    modelpath = os.path.join(save_path, modality+'.pth')
+
     # Load the data
     src_train, msk_train, src_val, msk_val, fnames = load_data(data_path, validation_portion=validation_portion, modality=modality)
 
@@ -36,7 +43,7 @@ def train_skullstripper(data_path,
     model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
                         in_channels=3, out_channels=1, init_features=32,
                         pretrained=False)
-    model.load_state_dict(torch.load(os.path.join(skpath,"paper_weights/skull-stripper-paper.pth"),map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load(skpath, map_location=torch.device('cpu')))
     if torch.cuda.is_available():
         model.cuda()
 
@@ -46,6 +53,7 @@ def train_skullstripper(data_path,
 
     # Metric placeholders
     train_loss, val_loss, train_dice_scores, val_dice_scores = [], [], [], []
+    best_dice_score = 0
 
     # Train the model
     for epoch in range(num_epochs):
@@ -96,21 +104,26 @@ def train_skullstripper(data_path,
                     np.mean(train_loss[-1]), np.mean(val_loss[-1]), \
                     np.mean(train_dice_scores[-1]), np.mean(val_dice_scores[-1])), \
                 )
-        
-    # Saving trained model
-    modelpath = os.path.join(save_path, modality+'.pth')
-    torch.save(model.state_dict(), modelpath)
+        # Saving trained model
+        if best_dice_score < np.mean(val_dice_scores[-1]):
+            best_dice_score = np.mean(val_dice_scores[-1])
+            torch.save(model.state_dict(), modelpath)
 
     return train_loss, val_loss, train_dice_scores, val_dice_scores
 
 if __name__ == "__main__":
     data_path = '/projects/compsci/USERS/frohoz/msUNET/train/dataset/'
+    parser=argparse.ArgumentParser()
+    parser.add_argument("-m", "--modality", type=str, required=False)
+    args=parser.parse_args()
+    print(f'Starting training for modality {args.modality}')
     train_skullstripper(data_path,
                         validation_portion=.2,
                         batch_size=64,
-                        lr=0.002,
+                        lr=0.01,
                         lr_step=100,
-                        modality='dti',
+                        modality=args.modality,
                         num_epochs=100,
-                        skpath='/home/ghanba/ssNET/skull-stripper',
+                        skpath='/home/ghanba/ssNET/SkullStripperUNET/weights/'+args.modality+'.pth',
+                        # skpath='/home/ghanba/ssNET/skull-stripper/paper_weights/skull-stripper-paper.pth'
                         )

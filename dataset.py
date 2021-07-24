@@ -8,7 +8,7 @@ import random
 from PIL import Image
 from torchvision import transforms
 import os
-from random import shuffle
+from random import seed, shuffle
 
 def load_data(data_path, validation_portion=0.2, modality=None):
     '''
@@ -50,12 +50,14 @@ def load_data(data_path, validation_portion=0.2, modality=None):
 
             # Transform expert mask
             input_mask_original = mask_arr[image_idx, :,:]
+            input_mask_original = normalize_image(input_mask_original)
             src.append(np.uint8(input_image_original))
             msk.append(np.uint8(input_mask_original))
             fnames.append((f, image_idx))
 
     # Shuffle dataset
     index_shuf = list(range(len(fnames)))
+    seed(10)
     shuffle(index_shuf)
 
     fnames = [fnames[i] for i in index_shuf]

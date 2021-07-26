@@ -9,14 +9,14 @@ from utils import cvt1to3channels, normalize_image
 import matplotlib.pyplot as plt
 
 
-def get_dice_val(model, src_val, msk_val, fnames, trans):
-    max_slice_num = max([i[1] for i in fnames])
+def get_dice_val(model, src_val, msk_val, fnames_val, trans):
+    max_slice_num = max([i[1] for i in fnames_val])
     dice_val = {}
 
     for i_slice in range(max_slice_num):
         print(f'Starting slice number: {i_slice}')
         dice_val[i_slice] = []
-        idx_slice = [i for i, f in enumerate(fnames[Nt:]) if f[1]==i_slice]
+        idx_slice = [i for i, f in enumerate(fnames_val) if f[1]==i_slice]
         inputs_all = torch.empty([len(idx_slice),3,256,256])
         labels_all = torch.empty([len(idx_slice),1,256,256])
         for ii, idx1 in enumerate(idx_slice):
@@ -42,8 +42,8 @@ for modality in modalities:
     # skpath='/home/ghanba/ssNET/skull-stripper/paper_weights/skull-stripper-paper.pth'
     data_path = '/projects/compsci/USERS/frohoz/msUNET/train/dataset/'
     validation_portion=.2
-    _, _, src_val, msk_val, fnames = load_data(data_path,
-    validation_portion=validation_portion, modality=modality)
+    _, _, src_val, msk_val, fnames_train, fnames_val = load_data(data_path,
+    num_train_sample=80, modality=modality)
     Nt = len(_) # number of trian samples
 
     model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
@@ -52,7 +52,8 @@ for modality in modalities:
     model.load_state_dict(torch.load(skpath, map_location=torch.device('cpu')))
 
     trans = transforms.Compose([transforms.Resize((225,225)),transforms.CenterCrop(256), transforms.ToTensor()])
-    dice_modality[modality] = get_dice_val(model, src_val, msk_val, fnames, trans)
+    print(f'Calculating dice score for slices in {modality}')
+    dice_modality[modality] = get_dice_val(model, src_val, msk_val, fnames_val, trans)
 
 #%%
 for modality in modalities:
@@ -62,11 +63,11 @@ plt.xlabel('Slice Number')
 plt.ylabel('Mean Dice Coeff')
 plt.legend(modalities)
 plt.ylim((.85, 1))
-plt.savefig('results.pdf')
+plt.savefig('results_.pdf')
 plt.show()
 # %%
 i_slice = 7
-idx_slice = [i for i, f in enumerate(fnames[Nt:]) if f[1]==i_slice]
+idx_slice = [i for i, f in enumerate(fnames_val) if f[1]==i_slice]
 
 for idx1 in idx_slice[:10]:
     inputs, labels = src_val[idx1], msk_val[idx1]

@@ -12,7 +12,7 @@ from metrics import dice_score
 import argparse
 
 def train_skullstripper(data_path,
-                        validation_portion=.2,
+                        num_train_sample,
                         batch_size=256,
                         lr=0.01,
                         lr_step=100,
@@ -22,13 +22,13 @@ def train_skullstripper(data_path,
                         save_path='weights'
                         ):
     
-    print(f'Starting training: lr: {lr}, batch_size: {batch_size}, modality: {modality}')
+    print(f'Starting training: lr: {lr}, batch_size: {batch_size}, modality: {modality}, number of mice samples: {num_train_sample}')
 
     # where to save the model
     modelpath = os.path.join(save_path, modality+'.pth')
 
     # Load the data
-    src_train, msk_train, src_val, msk_val, fnames = load_data(data_path, validation_portion=validation_portion, modality=modality)
+    src_train, msk_train, src_val, msk_val, _, _ = load_data(data_path, num_train_sample, modality=modality)
 
     # Transform both images and masks ...
     trans = transforms.Compose([transforms.Resize((225,225)),transforms.CenterCrop(256), transforms.ToTensor()])
@@ -115,15 +115,16 @@ if __name__ == "__main__":
     data_path = '/projects/compsci/USERS/frohoz/msUNET/train/dataset/'
     parser=argparse.ArgumentParser()
     parser.add_argument("-m", "--modality", type=str, required=False)
+    parser.add_argument("-n", "--num_train_sample", type=int, required=True)
     args=parser.parse_args()
     print(f'Starting training for modality {args.modality}')
     train_skullstripper(data_path,
-                        validation_portion=.2,
+                        num_train_sample=args.num_train_sample,
                         batch_size=64,
                         lr=0.01,
                         lr_step=100,
                         modality=args.modality,
                         num_epochs=100,
-                        skpath='/home/ghanba/ssNET/SkullStripperUNET/weights/'+args.modality+'.pth',
-                        # skpath='/home/ghanba/ssNET/skull-stripper/paper_weights/skull-stripper-paper.pth'
+                        # skpath='/home/ghanba/ssNET/SkullStripperUNET/weights/'+args.modality+'.pth',
+                        skpath='/home/ghanba/ssNET/skull-stripper/paper_weights/skull-stripper-paper.pth'
                         )

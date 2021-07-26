@@ -10,25 +10,23 @@ from torchvision import transforms
 import os
 from random import seed, shuffle
 
-def load_data(data_path, validation_portion=0.2, modality=None):
-    '''
-    loads all train images in data_path
-    data_path has two subfolders "training" and "masks"
-    images of all modalities are saved as .nii.gz format
-    there should be a corresponding file in masks for each file in training
-    #TODO check for this correspondence
-
-    all frames from all modalities are stored in output list
-
-    if modality is None loads everything
-    '''
+def load_data(data_path, num_train_sample, modality=None):
 
     train_path = data_path + 'training/' 
     mask_path = data_path + 'masks/' 
     train_list = sorted(os.listdir(train_path))
+
+    mouse_name = np.unique([f[:24] for f in train_list if f[:6]=='CK_DIF'])
+    seed(10)
+    shuffle(mouse_name)
+    print(f'Number of unique mice found in dataset: {len(mouse_name)}')
+    mouse_train = mouse_name[:num_train_sample]
+    mouse_val   = mouse_name[num_train_sample:]
+
     train_list = [i for i in train_list if i[-2:]=='gz']
 
-    src, msk, fnames = [], [], []
+    src_train, msk_train, fnames_train = [], [], []
+    src_val, msk_val, fnames_val = [], [], []
 
     # Read indiviual "nii.gz" files
     for f in train_list:
@@ -51,28 +49,18 @@ def load_data(data_path, validation_portion=0.2, modality=None):
             # Transform expert mask
             input_mask_original = mask_arr[image_idx, :,:]
             input_mask_original = normalize_image(input_mask_original)
-            src.append(np.uint8(input_image_original))
-            msk.append(np.uint8(input_mask_original))
-            fnames.append((f, image_idx))
-
-    # Shuffle dataset
-    index_shuf = list(range(len(fnames)))
-    seed(10)
-    shuffle(index_shuf)
-
-    fnames = [fnames[i] for i in index_shuf]
-    src = [src[i] for i in index_shuf]
-    msk = [msk[i] for i in index_shuf]
-
-    src = np.array(src)
-    msk = np.array(msk)
-
-    # Select slice for train
-    validation_size = int(len(src) * validation_portion)
-    train_size = len(src)-validation_size
-    
-    return src[:train_size], msk[:train_size], \
-            src[train_size:], msk[train_size:], fnames
+            if f[:24] in mouse_train:
+                src_train.append(np.uint8(input_image_original))
+                msk_train.append(np.uint8(input_mask_original))
+                fnames_train.append((f, image_idx))
+            elif f[:24] in mouse_val:
+                src_val.append(np.uint8(input_image_original))
+                msk_val.append(np.uint8(input_mask_original))
+                fnames_val.append((f, image_idx))
+            else:
+                print(f'{f} is not in train or validation mouse list!')
+            
+    return src_train, msk_train, src_val, msk_val, fnames_train, fnames_val
 
 
 class SkullStripperDataset(Dataset):

@@ -3,5 +3,7 @@
 tmp.png
 .vscode
 /weights
-
-
+*.sif
+slurm*
+*.out
+*.sh
